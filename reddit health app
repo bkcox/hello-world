@@ -1,0 +1,100 @@
+import React, { useState, useEffect } from "react";
+import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native";
+import { Card } from "@/components/ui/card";
+import { BarChart, PieChart } from "react-native-chart-kit";
+import { Dimensions } from "react-native";
+
+const API_URL = "http://your-api-url:5000/scrape?keywords=diabetes,asthma,hypertension&subreddits=health,AskDocs&limit=50";
+
+const App = () => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(API_URL)
+      .then((response) => response.json())
+      .then((result) => {
+        setData(result);
+        setLoading(false);
+      })
+      .catch((error) => console.error(error));
+  }, []);
+
+  if (loading) {
+    return <ActivityIndicator size="large" style={styles.loader} />;
+  }
+
+  const sentimentData = data.map((item) => item.top_comment_sentiment);
+  const labels = data.map((item, index) => `Post ${index + 1}`);
+
+  // Pie Chart Data
+  const positive = sentimentData.filter((s) => s > 0).length;
+  const neutral = sentimentData.filter((s) => s === 0).length;
+  const negative = sentimentData.filter((s) => s < 0).length;
+
+  const pieData = [
+    { name: "Positive", count: positive, color: "#4CAF50", legendFontColor: "#000", legendFontSize: 12 },
+    { name: "Neutral", count: neutral, color: "#FFC107", legendFontColor: "#000", legendFontSize: 12 },
+    { name: "Negative", count: negative, color: "#F44336", legendFontColor: "#000", legendFontSize: 12 },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Reddit Health Sentiment Analysis</Text>
+      
+      {/* Bar Chart */}
+      <BarChart
+        data={{ labels, datasets: [{ data: sentimentData }] }}
+        width={Dimensions.get("window").width - 20}
+        height={220}
+        chartConfig={{
+          backgroundColor: "#f4f4f4",
+          backgroundGradientFrom: "#fff",
+          backgroundGradientTo: "#ddd",
+          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          barPercentage: 0.5,
+        }}
+        style={styles.chart}
+      />
+
+      {/* Pie Chart */}
+      <PieChart
+        data={pieData}
+        width={Dimensions.get("window").width - 20}
+        height={220}
+        chartConfig={{
+          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+        }}
+        accessor="count"
+        backgroundColor="transparent"
+        paddingLeft="15"
+        absolute
+      />
+      
+      <FlatList
+        data={data}
+        keyExtractor={(item) => item.url}
+        renderItem={({ item }) => (
+          <Card style={[styles.card, { backgroundColor: item.top_comment_sentiment > 0 ? "#DFFFD6" : item.top_comment_sentiment < 0 ? "#FFD6D6" : "#FFF3D6" }] }>
+            <Text style={styles.postTitle}>{item.title}</Text>
+            <Text style={styles.comment}>Top Comment: {item.top_comment}</Text>
+            <Text style={styles.sentiment}>Sentiment Score: {item.top_comment_sentiment.toFixed(2)}</Text>
+          </Card>
+        )}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 10, backgroundColor: "#fff" },
+  title: { fontSize: 20, fontWeight: "bold", textAlign: "center", marginBottom: 10 },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  chart: { marginBottom: 20 },
+  card: { padding: 10, marginVertical: 5 },
+  postTitle: { fontSize: 16, fontWeight: "bold" },
+  comment: { fontSize: 14, marginTop: 5 },
+  sentiment: { fontSize: 14, marginTop: 5, fontWeight: "bold" },
+});
+
+export default App;
